@@ -12,12 +12,12 @@ def init_db():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS entregaveis (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        atividade TEXT,
         tipo TEXT,
+        atividade TEXT,
         complexidade TEXT,
         tempo INTEGER,
         resultado TEXT,
-        semana TEXT,
+        mes TEXT,
         data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -26,10 +26,11 @@ def init_db():
     CREATE TABLE IF NOT EXISTS andamento (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         atividade TEXT,
-        prioridade TEXT,
         status TEXT,
+        prioridade TEXT,
         bloqueio TEXT,
         observacao TEXT,
+        mes TEXT,
         data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -43,6 +44,7 @@ def init_db():
         solucao TEXT,
         impacto_tempo TEXT,
         status TEXT,
+        mes TEXT,
         data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
