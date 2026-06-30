@@ -1,6 +1,6 @@
 import sqlite3
 
-DB = "licentrack.db"
+DB = "pdi.db"
 
 def conn():
     return sqlite3.connect(DB, check_same_thread=False)
@@ -12,28 +12,40 @@ def init_db():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS entregaveis (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        filial TEXT,
-        tipo TEXT,
         atividade TEXT,
+        tipo TEXT,
         complexidade TEXT,
         tempo INTEGER,
         resultado TEXT,
+        semana TEXT,
         data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
-    c.commit()
-    c.close()
-
-def insert_entregavel(filial, tipo, atividade, complexidade, tempo, resultado):
-    c = conn()
-    cur = c.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS andamento (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        atividade TEXT,
+        prioridade TEXT,
+        status TEXT,
+        bloqueio TEXT,
+        observacao TEXT,
+        data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
 
     cur.execute("""
-    INSERT INTO entregaveis
-    (filial, tipo, atividade, complexidade, tempo, resultado)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (filial, tipo, atividade, complexidade, tempo, resultado))
+    CREATE TABLE IF NOT EXISTS melhorias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        titulo TEXT,
+        categoria TEXT,
+        problema TEXT,
+        solucao TEXT,
+        impacto_tempo TEXT,
+        status TEXT,
+        data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
 
     c.commit()
     c.close()
