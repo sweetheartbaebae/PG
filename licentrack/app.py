@@ -6,19 +6,39 @@ from db import *
 
 init_db()
 
-st.set_page_config(page_title="PDI Licenciamento", layout="wide")
+st.set_page_config(
+    page_title="PDI Licenciamento",
+    layout="wide"
+)
+
+# =========================
+# ESTILO VISUAL
+# =========================
+st.markdown("""
+<style>
+.big-font {
+    font-size:22px !important;
+    font-weight: bold;
+}
+.card {
+    padding:15px;
+    border-radius:10px;
+    background-color:#f4f4f4;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🏢 PDI - Performance em Licenciamento")
 
 menu = st.sidebar.radio(
-    "Menu",
-    ["📊 Dashboard", "🧾 Entregáveis", "🔄 Em andamento", "💡 Melhorias", "📈 Insights"]
+    "Navegação",
+    ["📊 Dashboard", "🧾 Entregáveis", "🔄 Em andamento", "💡 Melhorias", "📄 Relatório"]
 )
 
 conn = sqlite3.connect("pdi.db")
 
 # =========================
-# DASHBOARD INTELIGENTE
+# DASHBOARD POWER BI STYLE
 # =========================
 if menu == "📊 Dashboard":
 
@@ -26,25 +46,49 @@ if menu == "📊 Dashboard":
     df2 = pd.read_sql("SELECT * FROM andamento", conn)
     df3 = pd.read_sql("SELECT * FROM melhorias", conn)
 
-    st.subheader("📊 Indicadores Gerais")
+    st.subheader("📊 Visão Geral de Performance")
 
-    c1, c2, c3, c4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
 
-    c1.metric("Entregáveis", len(df))
-    c2.metric("Em andamento", len(df2))
-    c3.metric("Melhorias", len(df3))
-
-    if not df.empty:
-        c4.metric("Tempo médio (min)", round(df["tempo"].mean(), 1))
+    col1.metric("Entregáveis", len(df))
+    col2.metric("Em andamento", len(df2))
+    col3.metric("Melhorias", len(df3))
+    col4.metric("Tempo total", f"{df['tempo'].sum() if not df.empty else 0} min")
 
     st.divider()
 
     if not df.empty:
-        st.subheader("📈 Distribuição de Tipos")
-        st.plotly_chart(px.histogram(df, x="tipo"), use_container_width=True)
 
-        st.subheader("⏱️ Tempo por Complexidade")
-        st.plotly_chart(px.box(df, x="complexidade", y="tempo"), use_container_width=True)
+        # =========================
+        # VISÃO POR TIPO DE LICENÇA
+        # =========================
+        st.subheader("📌 Distribuição por Tipo de Licença")
+
+        tipo = df["tipo"].value_counts().reset_index()
+        tipo.columns = ["Tipo", "Quantidade"]
+
+        fig1 = px.bar(tipo, x="Tipo", y="Quantidade", text="Quantidade")
+        st.plotly_chart(fig1, use_container_width=True)
+
+        # =========================
+        # TEMPO POR TIPO
+        # =========================
+        st.subheader("⏱️ Tempo médio por tipo de licença")
+
+        tempo = df.groupby("tipo")["tempo"].mean().reset_index()
+
+        fig2 = px.bar(tempo, x="tipo", y="tempo", color="tempo")
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # =========================
+        # EVOLUÇÃO MENSAL
+        # =========================
+        st.subheader("📈 Evolução Mensal de Trabalho")
+
+        mensal = df.groupby("mes")["tempo"].sum().reset_index()
+
+        fig3 = px.line(mensal, x="mes", y="tempo", markers=True)
+        st.plotly_chart(fig3, use_container_width=True)
 
 # =========================
 # ENTREGÁVEIS
@@ -53,19 +97,33 @@ elif menu == "🧾 Entregáveis":
 
     st.subheader("Registrar Entregável")
 
-    atividade = st.text_input("Atividade")
-    tipo = st.selectbox("Tipo", ["AVCB", "Alvará", "Ambiental", "Reforma"])
-    complexidade = st.selectbox("Complexidade", ["Baixa", "Média", "Alta"])
-    tempo = st.number_input("Tempo (min)", 1)
-    resultado = st.text_input("Resultado")
-    semana = st.text_input("Semana (ex: S1, S2)")
+    tipo = st.selectbox(
+        "Tipo de Licença",
+        [
+            "Habite-se",
+            "Alvará de Funcionamento",
+            "Licença Ambiental",
+            "AVCB",
+            "Licença de Publicidade"
+        ]
+    )
 
-    if st.button("Salvar"):
+    atividade = st.text_input("Atividade realizada")
+
+    complexidade = st.selectbox("Complexidade", ["Baixa", "Média", "Alta"])
+
+    tempo = st.number_input("Tempo (min)", 1)
+
+    resultado = st.text_input("Resultado")
+
+    mes = st.text_input("Mês (ex: 2026-06)")
+
+    if st.button("Salvar Entregável"):
         c = conn.cursor()
         c.execute("""
-        INSERT INTO entregaveis (atividade, tipo, complexidade, tempo, resultado, semana)
+        INSERT INTO entregaveis (tipo, atividade, complexidade, tempo, resultado, mes)
         VALUES (?, ?, ?, ?, ?, ?)
-        """, (atividade, tipo, complexidade, tempo, resultado, semana))
+        """, (tipo, atividade, complexidade, tempo, resultado, mes))
         conn.commit()
         st.success("Salvo!")
 
@@ -77,57 +135,76 @@ elif menu == "🔄 Em andamento":
     st.subheader("Processos em andamento")
 
     atividade = st.text_input("Atividade")
+
+    status = st.selectbox(
+        "Status",
+        ["Em análise", "Aguardando órgão", "Aguardando cliente", "Em execução", "Bloqueado"]
+    )
+
     prioridade = st.selectbox("Prioridade", ["Baixa", "Média", "Alta"])
-    status = st.selectbox("Status", ["Em execução", "Aguardando órgão", "Bloqueado"])
-    bloqueio = st.text_input("Se bloqueado, por quê?")
+
+    bloqueio = st.text_input("Bloqueios (se houver)")
+
     observacao = st.text_area("Observações")
 
-    if st.button("Salvar"):
+    mes = st.text_input("Mês (ex: 2026-06)")
+
+    if st.button("Salvar Andamento"):
         c = conn.cursor()
         c.execute("""
-        INSERT INTO andamento (atividade, prioridade, status, bloqueio, observacao)
-        VALUES (?, ?, ?, ?, ?)
-        """, (atividade, prioridade, status, bloqueio, observacao))
+        INSERT INTO andamento (atividade, status, prioridade, bloqueio, observacao, mes)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (atividade, status, prioridade, bloqueio, observacao, mes))
         conn.commit()
         st.success("Salvo!")
 
 # =========================
-# MELHORIAS
+# MELHORIAS (PDI REAL)
 # =========================
 elif menu == "💡 Melhorias":
 
     st.subheader("Ações de Otimização")
 
     titulo = st.text_input("Título")
+
     categoria = st.selectbox("Categoria", ["Processo", "Automação", "Organização"])
+
     problema = st.text_area("Problema")
+
     solucao = st.text_area("Solução")
-    impacto_tempo = st.text_input("Impacto no tempo (ex: -30%)")
+
+    impacto_tempo = st.text_input("Impacto (ex: -30% tempo)")
+
     status = st.selectbox("Status", ["Ideia", "Testando", "Implementado"])
 
-    if st.button("Salvar"):
+    mes = st.text_input("Mês (ex: 2026-06)")
+
+    if st.button("Salvar Melhoria"):
         c = conn.cursor()
         c.execute("""
-        INSERT INTO melhorias (titulo, categoria, problema, solucao, impacto_tempo, status)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (titulo, categoria, problema, solucao, impacto_tempo, status))
+        INSERT INTO melhorias (titulo, categoria, problema, solucao, impacto_tempo, status, mes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (titulo, categoria, problema, solucao, impacto_tempo, status, mes))
         conn.commit()
         st.success("Salvo!")
 
 # =========================
-# INSIGHTS (NOVO DIFERENCIAL)
+# RELATÓRIO (BASE PARA PDF)
 # =========================
-elif menu == "📈 Insights":
+elif menu == "📄 Relatório":
 
-    st.subheader("📊 Análises do seu trabalho")
+    st.subheader("📄 Relatório de Performance (PDI)")
 
     df = pd.read_sql("SELECT * FROM entregaveis", conn)
+    df2 = pd.read_sql("SELECT * FROM melhorias", conn)
 
-    if df.empty:
-        st.warning("Sem dados ainda")
-    else:
-        st.write("🔥 Atividades mais frequentes")
+    st.write("### 📊 Resumo")
+
+    st.write(f"- Total de entregáveis: {len(df)}")
+    st.write(f"- Total de melhorias: {len(df2)}")
+
+    if not df.empty:
+        st.write("### 📌 Distribuição por tipo")
         st.bar_chart(df["tipo"].value_counts())
 
-        st.write("⏱️ Distribuição de tempo")
-        st.hist_chart = st.histogram(df["tempo"])
+    st.info("💡 Aqui depois podemos gerar PDF automático para seu gestor.")
